@@ -1,4 +1,6 @@
-import repositories.PlantenRepository;
+package be.dimitrigevers.jdbc;
+
+import be.dimitrigevers.jdbc.repositories.PlantenRepository;
 
 import java.sql.SQLException;
 

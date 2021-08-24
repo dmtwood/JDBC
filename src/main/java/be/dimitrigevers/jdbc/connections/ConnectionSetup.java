@@ -1,4 +1,4 @@
-package connections;
+package be.dimitrigevers.jdbc.connections;
 
 import java.net.URL;
 import java.sql.Connection;

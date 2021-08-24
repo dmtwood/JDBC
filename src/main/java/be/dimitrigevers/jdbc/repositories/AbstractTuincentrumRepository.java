@@ -1,4 +1,4 @@
-package repositories;
+package be.dimitrigevers.jdbc.repositories;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
