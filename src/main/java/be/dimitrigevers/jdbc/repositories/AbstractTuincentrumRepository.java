@@ -9,7 +9,8 @@ abstract class AbstractTuincentrumRepository {
     private static final String DB_URL = "jdbc:mysql://localhost/tuincentrum?" +
             "useSSL=false&" +
             "allowPublicKeyRetrieval=true" +
-            "&serverTimezone=Europe/Brussels";
+            "&serverTimezone=Europe/Brussels" +
+            "&noAccessToProcedureBodies=true";
 
     private static final String DB_USERNAME = "cursist";
 

@@ -25,7 +25,7 @@ public class Leverancier {
 
     @Override
     public String toString() {
-        return "Leverancier " + naam + " met id " + id + ", met standplaats='"
+        return "Leverancier " + naam + " met id " + id + ", met standplaats "
                 + woonplaats + " levert sinds " + sinds.format(dateTimeFormatter) ;
     }
 }
