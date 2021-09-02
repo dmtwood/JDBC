@@ -4,6 +4,8 @@ import be.dimitrigevers.jdbc.domain.Leverancier;
 import be.dimitrigevers.jdbc.repositories.LeveranciersRepository;
 
 import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.Scanner;
 
@@ -61,7 +63,22 @@ public class LeveranciersApp {
             System.out.println();
             System.out.println("*************************");
             System.out.println("Alle leveranciers van voor 2001: ");
-            leveranciersRepo.leveranciersSince2001().forEach(System.out::println);
+            leveranciersRepo.leveranciersBefore2001().forEach(System.out::println);
+
+
+            System.out.println();
+            System.out.println("*************************");
+            System.out.println("Alle leveranciers gestart in 2000: ");
+            leveranciersRepo.leveranciersStartedInYear2000().forEach(System.out::println);
+
+
+            System.out.println();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d/M/y") ;
+            System.out.println("*************************");
+            System.out.println("Zoek alle leveranciers vanaf (dd/mm/jjjj) : ");
+            Scanner scanner1 = new Scanner(System.in);
+            LocalDate filterDate = LocalDate.parse( scanner1.nextLine(), formatter);
+            leveranciersRepo.leveranciersSince(filterDate).forEach(System.out::println);
 
         } catch (SQLException sqlException) {
             sqlException.printStackTrace(System.err);

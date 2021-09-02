@@ -1,11 +1,8 @@
 package be.dimitrigevers.jdbc.repositories;
 
 import be.dimitrigevers.jdbc.domain.Leverancier;
-
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -105,6 +102,42 @@ public class LeveranciersRepository extends AbstractTuincentrumRepository {
         }
     }
 
+
+    public List<Leverancier> leveranciersSince(LocalDate sinceDate) throws SQLException {
+        var sqlQuery = "select id,naam,adres,postcode, woonplaats, sinds from leveranciers where sinds >= ?";
+        try (
+                Connection connection = super.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sqlQuery)
+        ) {
+            connection.setAutoCommit(false);
+            connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+            statement.setDate(1, Date.valueOf(sinceDate));
+            try (
+                    ResultSet resultSet = statement.executeQuery()
+            ) {
+                var leveranciersSince = new ArrayList<Leverancier>();
+                while (resultSet.next()) leveranciersSince.add(convertSetToLeverancierObject(resultSet));
+                connection.commit();
+                return leveranciersSince;
+            }
+        }
+    }
+
+
+    public List<Leverancier> leveranciersBefore2001() throws SQLException {
+
+        var sqlQuery = "select id,naam,adres,postcode, woonplaats, sinds from leveranciers where sinds <= {d '2001-01-01'}";
+        return getLeveranciers(sqlQuery);
+    }
+
+
+    // use {fn } to use JDBC DateTime methods >> curdate, curtime(), now(), dayof...(), month(myLocalDate),...
+    public List<Leverancier> leveranciersStartedInYear2000() throws SQLException {
+
+        var mySQLQuery = "select id,naam,adres,postcode,woonplaats,sinds from leveranciers where {fn year(sinds)} = 2000";
+        return getLeveranciers(mySQLQuery);
+    }
+
     private Leverancier convertSetToLeverancierObject(ResultSet resultSet) throws SQLException {
         return new Leverancier(
                 resultSet.getInt("id"),
@@ -116,10 +149,7 @@ public class LeveranciersRepository extends AbstractTuincentrumRepository {
         );
     }
 
-    public List<Leverancier> leveranciersSince2001() throws SQLException {
-
-        var sqlQuery = "select id,naam,adres,postcode, woonplaats, sinds from leveranciers where sinds <= {d '2001-01-01'}";
-
+    private List<Leverancier> getLeveranciers(String sqlQuery) throws SQLException {
         try (
                 Connection connection = super.getConnection();
                 PreparedStatement statement = connection.prepareStatement(sqlQuery)) {
@@ -141,7 +171,6 @@ public class LeveranciersRepository extends AbstractTuincentrumRepository {
             }
         }
     }
-
 
 }
 

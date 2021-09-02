@@ -1,5 +1,10 @@
 package be.dimitrigevers.jdbc.repositories;
 
+import be.dimitrigevers.jdbc.exceptions.PlantNotFoundException;
+import be.dimitrigevers.jdbc.exceptions.PrijsToLowException;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +23,7 @@ public class PlantenRepository extends AbstractTuincentrumRepository {
             return preparedStatement.executeUpdate();
         }
     }
+
 
     public int raisePriceByName(String plantName, int percentage) throws SQLException {
 
@@ -41,21 +47,22 @@ public class PlantenRepository extends AbstractTuincentrumRepository {
 
         String callMyProcedure = "{call PlantsWithSubstring(?)}";
         try (
-            Connection connection = super.getConnection();
-            CallableStatement statement = connection.prepareCall(callMyProcedure)
+                Connection connection = super.getConnection();
+                CallableStatement statement = connection.prepareCall(callMyProcedure)
+        ) {
+            statement.setString(1, '%' + mySubstring + '%');
+            try (
+                    ResultSet resultSet = statement.executeQuery()
             ) {
-                statement.setString(1, '%' + mySubstring + '%');
-                try (
-                        ResultSet resultSet = statement.executeQuery()
-                        ) {
-                    var namesContainingMySubstring = new ArrayList<String>();
-                            while (resultSet.next()) {
-                                namesContainingMySubstring.add(resultSet.getString("naam"));
-                            }
-                            return namesContainingMySubstring;
+                var namesContainingMySubstring = new ArrayList<String>();
+                while (resultSet.next()) {
+                    namesContainingMySubstring.add(resultSet.getString("naam"));
                 }
+                return namesContainingMySubstring;
             }
+        }
     }
+
 
     // bundle statements into one transaction -> autocommit false, execute all, commit
     public void raisePricesOverAndUnder100() throws SQLException {
@@ -68,12 +75,48 @@ public class PlantenRepository extends AbstractTuincentrumRepository {
                 PreparedStatement under100Statement = connection.prepareStatement(under100)
         ) {
             connection.setAutoCommit(false);
-                over100Statement.executeUpdate();
-                under100Statement.executeUpdate();
+            over100Statement.executeUpdate();
+            under100Statement.executeUpdate();
             connection.commit();
         }
     }
 
+
+    public void lowerPrice(long id, BigDecimal newPrice) throws SQLException {
+        String sqlQuery = "select prijs from planten where id = ? for update";
+        try (
+                Connection connection = super.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sqlQuery)
+        ) {
+            statement.setLong(1, id);
+            connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+            connection.setAutoCommit(false);
+            try (
+                    ResultSet resultSet = statement.executeQuery()
+            ) {
+                if (resultSet.next()) {
+                    BigDecimal priceInDB = resultSet.getBigDecimal("prijs");
+
+                    if (priceInDB.divide(BigDecimal.valueOf(2L), RoundingMode.HALF_UP).compareTo(newPrice) < 1) {
+                        String updateQuery = "update planten set prijs = ? where id = ?";
+                        try (
+                                PreparedStatement statement1 = connection.prepareStatement(updateQuery);
+                        ) {
+                            statement1.setLong(1, id);
+                            statement1.setBigDecimal(2, newPrice);
+                            statement1.executeQuery();
+                            connection.commit();
+                            return;
+                        }
+                    }
+                    connection.rollback();
+                    throw new PrijsToLowException();
+                }
+                connection.rollback();
+                throw new PlantNotFoundException();
+            }
+        }
+    }
 
 
 //    De interface PreparedStatement stelt een SQL statement voor dat je naar de database stuurt.
