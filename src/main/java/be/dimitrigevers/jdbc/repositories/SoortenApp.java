@@ -34,7 +34,7 @@ public class SoortenApp {
         System.out.println("***********************");
 
         System.out.println("***********************");
-        System.out.println("Geef een soortnaam in. Gebruik maximale veiligheid (vertraagt systeem)");
+        System.out.println("Geef een soortnaam in. Gebruik read committed veiligheidsniveau (good performance");
         inPut = scanner.nextLine();
         while ( inPut.length() > 10) {
             System.out.println("***********************");
@@ -43,8 +43,8 @@ public class SoortenApp {
         }
 
         try {
-            soortenRepo.createWithMaxSecurity(inPut);
-            System.out.println("Soort is toegevoegd");
+            long newId = soortenRepo.createBestPractice(inPut);
+            System.out.println("Soort is toegevoegd. Het id in SQL is " + newId);
         } catch (SQLException e) {
             e.printStackTrace(System.err);
         } catch (SoortAlreadyExistsException ex) {

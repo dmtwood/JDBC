@@ -45,6 +45,7 @@ public class SoortenRepository extends AbstractTuincentrumRepository {
                         statementInsert.setString(1, newSoort);
                         statementInsert.executeUpdate();
                         connection.commit();
+                        System.out.println("max sec added");
                     }
                 }
             }
@@ -52,12 +53,14 @@ public class SoortenRepository extends AbstractTuincentrumRepository {
     }
 
 // try insert & commit >> try { executeUpdate() } catch (SQLEx) { try selectstatement  try resultset.executeQuery()  .next() ? throw cust exc
-    public void createBestPractice(String newSoort) throws SQLException {
+
+    // when working with sql auto-numbered id's
+    // >> return a long (no longer void) | prepare statement with to manage keys (2nd param) | Create ResultSet with .getGeneratedKeys()
+    public long createBestPractice(String newSoort) throws SQLException {
 
         try (
                 Connection connection = super.getConnection();
-                PreparedStatement statementInsert = connection.prepareStatement(insertSoort)
-
+                PreparedStatement statementInsert = connection.prepareStatement(insertSoort, PreparedStatement.RETURN_GENERATED_KEYS)
         ) {
             statementInsert.setString(1, newSoort);
             connection.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
@@ -65,7 +68,16 @@ public class SoortenRepository extends AbstractTuincentrumRepository {
 
             try {
                 statementInsert.executeUpdate();
-                connection.commit();
+                try (
+                        ResultSet resultSet = statementInsert.getGeneratedKeys()
+                ) {
+                    resultSet.next();
+                    long returnedId = resultSet.getLong(1);
+                    connection.commit();
+                    System.out.println("BP added");
+                    return returnedId;
+                }
+
             } catch (SQLException ex) {
                 try (
                         PreparedStatement statementSelect = connection.prepareStatement(selectIdFromSoort)
@@ -74,14 +86,15 @@ public class SoortenRepository extends AbstractTuincentrumRepository {
                     try (
                             ResultSet resultSet = statementSelect.executeQuery()
                     ) {
-                        if (resultSet.next()) {
-                            connection.commit();
-                            throw new SoortAlreadyExistsException(newSoort + " staat al in 't systeem");
-                        }
+                        if (resultSet.next())
+
+                        connection.commit();
+                        throw ex;
                     }
                 }
             }
         }
     }
+
 }
 

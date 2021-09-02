@@ -94,15 +94,15 @@ public class LeveranciersRepository extends AbstractTuincentrumRepository {
         try (
                 Connection connection = super.getConnection();
                 PreparedStatement statement = connection.prepareStatement(findByIdQuery)
-                ) {
-                    statement.setLong(1, id);
-                    ResultSet resultSet = statement.executeQuery();
+        ) {
+            statement.setLong(1, id);
+            ResultSet resultSet = statement.executeQuery();
 
-                    if (resultSet.next()) {
-                        return Optional.of(convertSetToLeverancierObject(resultSet));
-                    }
-                    return Optional.empty();
-                }
+            if (resultSet.next()) {
+                return Optional.of(convertSetToLeverancierObject(resultSet));
+            }
+            return Optional.empty();
+        }
     }
 
     private Leverancier convertSetToLeverancierObject(ResultSet resultSet) throws SQLException {
@@ -115,4 +115,60 @@ public class LeveranciersRepository extends AbstractTuincentrumRepository {
                 resultSet.getDate("sinds").toLocalDate()
         );
     }
+
+    public List<Leverancier> leveranciersSince2001() throws SQLException {
+
+        var sqlQuery = "select id,naam,adres,postcode, woonplaats, sinds from leveranciers where sinds <= {d '2001-01-01'}";
+
+        try (
+                Connection connection = super.getConnection();
+                PreparedStatement statement = connection.prepareStatement(sqlQuery)) {
+
+            connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+            connection.setAutoCommit(false);
+
+            try (
+                    ResultSet resultSet = statement.executeQuery()) {
+
+                var leveranciersSince2001 = new ArrayList<Leverancier>();
+
+                while (resultSet.next()) {
+                    leveranciersSince2001.add(convertSetToLeverancierObject(resultSet));
+                }
+
+                connection.commit();
+                return leveranciersSince2001;
+            }
+        }
+    }
+
+
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
