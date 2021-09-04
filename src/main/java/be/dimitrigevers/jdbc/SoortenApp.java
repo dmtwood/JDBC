@@ -1,6 +1,7 @@
-package be.dimitrigevers.jdbc.repositories;
+package be.dimitrigevers.jdbc;
 
 import be.dimitrigevers.jdbc.exceptions.SoortAlreadyExistsException;
+import be.dimitrigevers.jdbc.repositories.SoortenRepository;
 
 import java.sql.SQLException;
 import java.util.Scanner;

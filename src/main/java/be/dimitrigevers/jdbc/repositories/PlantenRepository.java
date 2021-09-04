@@ -2,12 +2,14 @@ package be.dimitrigevers.jdbc.repositories;
 
 import be.dimitrigevers.jdbc.exceptions.PlantNotFoundException;
 import be.dimitrigevers.jdbc.exceptions.PrijsToLowException;
+import be.dimitrigevers.jdbc.exceptions.SoortNotFoundException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class PlantenRepository extends AbstractTuincentrumRepository {
 
@@ -82,7 +84,9 @@ public class PlantenRepository extends AbstractTuincentrumRepository {
     }
 
 
-    public void lowerPrice(long id, BigDecimal newPrice) throws SQLException {
+    // append sql statement with    'for update'     to lock the record
+    // this is not best practice because it always uses 2 sql statement
+    public void lowerPriceNoBestPractice(long id, BigDecimal newPrice) throws SQLException {
         String sqlQuery = "select prijs from planten where id = ? for update";
         try (
                 Connection connection = super.getConnection();
@@ -98,17 +102,21 @@ public class PlantenRepository extends AbstractTuincentrumRepository {
                     BigDecimal priceInDB = resultSet.getBigDecimal("prijs");
 
                     if (priceInDB.divide(BigDecimal.valueOf(2L), RoundingMode.HALF_UP).compareTo(newPrice) < 1) {
+
+
                         String updateQuery = "update planten set prijs = ? where id = ?";
                         try (
-                                PreparedStatement statement1 = connection.prepareStatement(updateQuery);
+                                PreparedStatement statement1 = connection.prepareStatement(updateQuery)
                         ) {
                             statement1.setLong(1, id);
                             statement1.setBigDecimal(2, newPrice);
-                            statement1.executeQuery();
+                            statement1.executeUpdate();
                             connection.commit();
                             return;
                         }
                     }
+
+
                     connection.rollback();
                     throw new PrijsToLowException();
                 }
@@ -117,6 +125,72 @@ public class PlantenRepository extends AbstractTuincentrumRepository {
             }
         }
     }
+
+    // best practice, when first statements is successfully, the seconds isn't executed -> lesser workload db
+    public void lowerPrice(long id, BigDecimal newPrice) throws SQLException {
+
+        var updateQuery = "update " + PLANTEN_TABLE + " set prijs = ? where id = ? and prijs / 2 < ? ";
+
+        try (Connection connection = super.getConnection();
+             PreparedStatement statement = connection.prepareStatement(updateQuery)
+        ) {
+            connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+            connection.setAutoCommit(false);
+            statement.setBigDecimal(1, newPrice);
+            statement.setLong(2, id);
+            statement.setBigDecimal(3, newPrice);
+            int updateReturn = statement.executeUpdate();
+            if (updateReturn == 1) {
+                connection.commit();
+                return;
+            }
+            // only processed when update had no effect > filter out wich condition/parameter was fault
+            var selectQuery = "select count(*) as aantal from planten where id = ?";
+            try (PreparedStatement updateStatement = connection.prepareStatement(selectQuery)) {
+                connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+                connection.setAutoCommit(false);
+                updateStatement.setLong(1, id);
+                try (ResultSet resultSet = updateStatement.executeQuery()) {
+                    resultSet.next();
+                    if (resultSet.getLong("aantal") == 0) {
+                        connection.rollback();
+                        throw new SoortNotFoundException("Er is geen plant aan " + id + " gelinkt");
+                    }
+                    throw new PrijsToLowException();
+                }
+            }
+
+        }
+    }
+
+    // best performance to search a set op records -> where .... in ( ..., ..., ...)
+    public List<String> plantNamesfromIds(Set<Long> ids) throws SQLException {
+
+        var queryNamesWithIds = new StringBuilder( "select id,naam from planten where id in (" );
+        ids.forEach(id -> queryNamesWithIds.append("?,"));
+        queryNamesWithIds.setCharAt(queryNamesWithIds.length() - 1, ')' );
+
+        try (Connection connection = super.getConnection();
+             PreparedStatement statement = connection.prepareStatement(String.valueOf(queryNamesWithIds))
+            ) {
+            int i = 1;
+            for (long id : ids) {
+                statement.setLong(i, id);
+                i++;
+            }
+            connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+            connection.setAutoCommit(false);
+            try (ResultSet resultSet = statement.executeQuery() ) {
+                var plantNamesWithIds = new ArrayList<String>();
+                while (resultSet.next() ) {
+                    plantNamesWithIds.add(resultSet.getString("naam"));
+                }
+                connection.commit();
+                return plantNamesWithIds;
+            }
+
+        }
+    };
 
 
 //    De interface PreparedStatement stelt een SQL statement voor dat je naar de database stuurt.
