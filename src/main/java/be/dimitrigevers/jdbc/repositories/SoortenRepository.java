@@ -2,10 +2,9 @@ package be.dimitrigevers.jdbc.repositories;
 
 import be.dimitrigevers.jdbc.exceptions.SoortAlreadyExistsException;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 // set transaction level on serializable for max secure but slow as hell -> use rare & with caution !!!
 
@@ -52,8 +51,9 @@ public class SoortenRepository extends AbstractTuincentrumRepository {
         }
     }
 
-// try insert & commit >> try { executeUpdate() } catch (SQLEx) { try selectstatement  try resultset.executeQuery()  .next() ? throw cust exc
 
+// try insert & commit      >> try { executeUpdate() }
+// catch (SQLEx) { try selstatement     try resultset.executeQuery()        .next() ? throw cust exc }
     // when working with sql auto-numbered id's
     // >> return a long (no longer void) | prepare statement with to manage keys (2nd param) | Create ResultSet with .getGeneratedKeys()
     public long createBestPractice(String newSoort) throws SQLException {
@@ -96,5 +96,48 @@ public class SoortenRepository extends AbstractTuincentrumRepository {
         }
     }
 
+
+    private static final String namesBatchQuery = "insert into soorten(naam) values (?)";
+
+    // use a batch file to bundle multiple calls
+    public void create(List<String> names) throws SQLException {
+
+        try (Connection connection = super.getConnection();
+             PreparedStatement statement = connection.prepareStatement(namesBatchQuery)
+        ) {
+            connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+            connection.setAutoCommit(false);
+            for (String name : names) {
+                statement.setString(1, name);
+                // statement.executeUpdate();
+                statement.addBatch();
+            }
+            statement.executeBatch();
+            connection.commit();
+        }
+    }
+
+
+    public List<Long> createAndReadNewIds(List<String> names) throws SQLException {
+        var idsCreated = new ArrayList<Long>();
+        try( Connection connection = super.getConnection();
+        PreparedStatement statement = connection.prepareStatement(namesBatchQuery, Statement.RETURN_GENERATED_KEYS)) {
+            connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+            connection.setAutoCommit(false);
+            for (String name : names ) {
+                statement.setString(1, name);
+                statement.addBatch();
+            }
+            statement.executeBatch();
+            try( ResultSet resultSet = statement.getGeneratedKeys()
+            ) {
+                while (resultSet.next()) {
+                    idsCreated.add(resultSet.getLong(1)); //
+                }
+            }
+            connection.commit();
+            return idsCreated;
+        }
+    }
 }
 

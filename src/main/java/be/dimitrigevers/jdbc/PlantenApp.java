@@ -86,7 +86,7 @@ public class PlantenApp {
         }
 
         // short hand
-        plantenRepository.plantNamesfromIds(ids).forEach(plant -> System.out.println(plant) );
+        plantenRepository.plantNamesfromIds(ids).forEach(plantNaam -> System.out.println( plantNaam) );
 
         // long hand
         try {
